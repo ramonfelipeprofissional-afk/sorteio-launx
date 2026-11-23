@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sorteio Launx</title>
+<style>
+  :root{--bg:#f5f6f8;--card:#fff;--ink:#14171c;--muted:#6b7280;--line:#e5e7eb;--brand:#0E2338;--accent:#1d6ef5;--ok:#0f8a4b;--err:#c0262d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  header{background:var(--brand);color:#fff;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+  header h1{font-size:18px;margin:0;letter-spacing:.2px}
+  main{max-width:900px;margin:24px auto;padding:0 16px;display:grid;gap:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px}
+  .card h2{font-size:15px;margin:0 0 12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+  button{font:inherit;border:0;border-radius:8px;padding:10px 16px;background:var(--accent);color:#fff;cursor:pointer;font-weight:600}
+  button.sec{background:#fff;color:var(--ink);border:1px solid var(--line)}
+  button:disabled{opacity:.5;cursor:default}
+  .row{display:flex;gap:8px;flex-wrap:wrap}
+  input[type=text]{flex:1;min-width:240px;font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:8px}
+  .perfis{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .chip{background:#eef2f7;border-radius:999px;padding:4px 12px;font-size:13px}
+  .msg{margin-top:12px;font-size:14px}
+  .msg.err{color:var(--err)} .msg.ok{color:var(--ok)}
+  .bar{height:8px;background:#eef2f7;border-radius:99px;overflow:hidden;margin-top:12px;display:none}
+  .bar span{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+  .stat{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:12px}
+  .stat b{display:block;font-size:24px}
+  .stat small{color:var(--muted)}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600;position:sticky;top:0;background:#fff}
+  .tabela{max-height:520px;overflow:auto}
+  td.u a{color:var(--accent);text-decoration:none;font-weight:600}
+  .tag{font-size:11px;background:#fff4e5;color:#9a5b00;border-radius:4px;padding:1px 6px;margin-left:6px}
+  .hidden{display:none}
+  body.sem-num .num-part{display:none !important}
+  .filtros{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:16px}
+  .filtros .lin{display:flex;gap:10px;align-items:flex-start;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer}
+  .filtros .lin input{margin-top:4px}
+  .filtros small{color:var(--muted);font-weight:400}
+  .filtros .campo{display:flex;flex-direction:column;gap:4px;font-weight:600;font-size:14px}
+  .filtros .campo.largo{grid-column:1/-1}
+  .filtros input[type=text],.filtros input[type=number],.filtros textarea{font:inherit;font-weight:400;padding:9px 12px;border:1px solid var(--line);border-radius:8px;width:100%}
+  .validos{font-size:15px;margin-bottom:14px}
+  .validos b{font-size:22px}
+  button.grande{padding:14px 28px;font-size:17px}
+  .ganhador{display:flex;gap:14px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:10px}
+  .ganhador .pos{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-weight:800;color:#fff;background:var(--brand);flex:none}
+  .ganhador.supl .pos{background:#94a3b8}
+  .ganhador .quem a{font-size:19px;font-weight:800;color:var(--ink);text-decoration:none}
+  .ganhador .quem div{color:var(--muted);font-size:14px}
+  .ganhador .papel{margin-left:auto;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+  #palco{position:fixed;inset:0;background:rgba(14,35,56,.96);color:#fff;display:none;place-items:center;z-index:10;text-align:center}
+  #palco .num{font-size:140px;font-weight:900;line-height:1}
+  #palco .nome{font-size:44px;font-weight:900;margin-top:12px;word-break:break-all;padding:0 16px}
+  #palco small{display:block;opacity:.7;font-size:16px;margin-top:8px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Sorteio Launx</h1>
+  <div id="quem" style="font-size:14px;opacity:.85"></div>
+</header>
+
+<main>
+  <section class="card" id="cardLogin">
+    <h2>1. Entrar</h2>
+    <button id="btnLogin">Entrar com Facebook</button>
+    <div class="perfis" id="perfis"></div>
+    <div class="msg" id="msgLogin"></div>
+  </section>
+
+  <section class="card">
+    <h2>2. Link do post</h2>
+    <div class="row">
+      <input type="text" id="link" placeholder="Cole aqui o link do post ou reel do Instagram">
+      <button id="btnBuscar" disabled>Buscar comentários</button>
+    </div>
+    <div class="bar" id="bar"><span></span></div>
+    <div class="msg" id="msgBusca"></div>
+  </section>
+
+  <section class="card hidden" id="cardFiltros">
+    <h2>3. Regras do sorteio</h2>
+    <div class="filtros">
+      <label class="lin"><input type="checkbox" id="fUnico" checked> <span><b>Uma chance por pessoa</b><br><small>Desligado: cada comentário vale uma chance</small></span></label>
+      <label class="lin"><input type="checkbox" id="fResp"> <span><b>Contar respostas</b><br><small>Respostas dentro de outros comentários também participam</small></span></label>
+      <label class="campo"><span>Palavra obrigatória <small>(opcional)</small></span><input type="text" id="fPalavra" placeholder="ex.: EU QUERO"></label>
+      <label class="campo"><span>Mínimo de @marcações</span><input type="number" id="fMencoes" min="0" max="20" value="0"></label>
+      <label class="campo largo"><span>Contas que não participam <small>(uma por linha ou separadas por vírgula)</small></span><textarea id="fExcluir" rows="2" placeholder="@perfil_do_expert, @equipe"></textarea></label>
+      <label class="lin"><input type="checkbox" id="fMostrarNum" checked> <span><b>Mostrar número de participantes</b><br><small>Desligado: a quantidade de pessoas não aparece na tela nem no resultado</small></span></label>
+      <label class="campo"><span>Ganhadores</span><input type="number" id="fGanh" min="1" max="5" value="1"></label>
+      <label class="campo"><span>Suplentes</span><input type="number" id="fSupl" min="0" max="5" value="1"></label>
+    </div>
+    <div class="validos num-part"><b id="nValidos">0</b> <span id="txtValidos">participantes válidos</span></div>
+    <button id="btnSortear" class="grande">Sortear</button>
+  </section>
+
+  <section class="card hidden" id="cardGanhadores">
+    <h2>4. Resultado</h2>
+    <div id="listaGanhadores"></div>
+    <div class="row" style="margin-top:16px">
+      <button id="btnDeNovo" class="sec">Sortear de novo (sem quem já saiu)</button>
+      <button id="btnCopiar" class="sec">Copiar resultado</button>
+    </div>
+    <div class="msg" id="msgSorteio"></div>
+  </section>
+
+  <section class="card hidden" id="cardResultado">
+    <h2>Todos os comentários</h2>
+    <div class="stats num-part">
+      <div class="stat"><b id="sTotal">0</b><small>comentários (com respostas)</small></div>
+      <div class="stat"><b id="sPrinc">0</b><small>comentários principais</small></div>
+      <div class="stat"><b id="sPessoas">0</b><small>pessoas diferentes</small></div>
+      <div class="stat"><b id="sPerfil">-</b><small>perfil do post</small></div>
+    </div>
+    <div class="row" style="margin-bottom:12px">
+      <label><input type="checkbox" id="chkResp" checked> Mostrar respostas</label>
+      <span style="flex:1"></span>
+      <button class="sec" id="btnCsv">Baixar lista (CSV)</button>
+    </div>
+    <div class="tabela">
+      <table>
+        <thead><tr><th>#</th><th>@</th><th>Comentário</th><th>Data</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<div id="palco"></div>
+
+<script>
+const APP_ID = '4505717029689770';
+const API = 'https://graph.facebook.com/v27.0';
+const SCOPES = 'pages_show_list,pages_read_engagement,business_management,instagram_basic,instagram_manage_comments';
+
+let token = null;
+let perfis = [];      // [{igId, username, pagina}]
+let comentarios = []; // [{username, text, timestamp, resposta}]
+let perfilDoPost = '';
+
+const $ = id => document.getElementById(id);
+function msg(el, texto, tipo){ el.textContent = texto; el.className = 'msg ' + (tipo||''); }
+function barra(p){ const b=$('bar'); b.style.display = p==null?'none':'block'; b.firstElementChild.style.width = (p||0)+'%'; }
+
+async function api(caminho, params={}){
+  const url = new URL(caminho.startsWith('http') ? caminho : API + '/' + caminho);
+  if(!caminho.startsWith('http')){
+    for(const [k,v] of Object.entries(params)) url.searchParams.set(k,v);
+    url.searchParams.set('access_token', token);
+  }
+  const r = await fetch(url);
+  const j = await r.json();
+  if(j.error) throw new Error(j.error.message);
+  return j;
+}
+
+// ---------- Login ----------
+window.fbAsyncInit = function(){
+  FB.init({ appId: APP_ID, cookie: true, xfbml: false, version: 'v27.0' });
+  FB.getLoginStatus(r => { if(r.status === 'connected') aposLogin(r.authResponse.accessToken); });
+};
+$('btnLogin').onclick = () => {
+  if(!window.FB){ msg($('msgLogin'),'O Facebook ainda está carregando. Tente de novo em alguns segundos.','err'); return; }
+  FB.login(r => {
+    if(r.authResponse) aposLogin(r.authResponse.accessToken);
+    else msg($('msgLogin'),'Login cancelado.','err');
+  }, { scope: SCOPES });
+};
+
+async function aposLogin(t){
+  token = t;
+  msg($('msgLogin'),'Carregando perfis...');
+  try{
+    const me = await api('me', {fields:'name'});
+    $('quem').textContent = me.name;
+    perfis = [];
+    let pag = await api('me/accounts', {fields:'name,instagram_business_account{id,username}', limit:100});
+    while(true){
+      for(const p of pag.data) if(p.instagram_business_account)
+        perfis.push({igId:p.instagram_business_account.id, username:p.instagram_business_account.username, pagina:p.name});
+      if(!pag.paging || !pag.paging.next) break;
+      pag = await api(pag.paging.next);
+    }
+    $('perfis').innerHTML = perfis.map(p => `<span class="chip">@${p.username}</span>`).join('');
+    if(perfis.length){
+      msg($('msgLogin'), `${perfis.length} perfil(is) do Instagram conectado(s).`, 'ok');
+      $('btnBuscar').disabled = false;
+      $('btnLogin').textContent = 'Trocar / atualizar acesso';
+      $('btnLogin').className = 'sec';
+    } else {
+      msg($('msgLogin'),'Nenhum perfil do Instagram encontrado. Entre de novo e marque as Páginas e contas dos experts.','err');
+    }
+  }catch(e){ msg($('msgLogin'),'Erro: '+e.message,'err'); }
+}
+
+// ---------- Link -> post ----------
+function codigoDoLink(link){
+  const m = link.trim().match(/instagram\.com\/(?:[^\/]+\/)?(?:p|reel|reels|tv)\/([A-Za-z0-9_-]+)/i);
+  return m ? m[1] : null;
+}
+
+// O código do link guarda a data do post: id = código em base64; (id >> 23) = milissegundos desde 24/08/2011
+function dataDoCodigo(codigo){
+  const alfabeto = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  let n = 0n;
+  for(const c of codigo.slice(0,11)){ const i = alfabeto.indexOf(c); if(i<0) return null; n = n*64n + BigInt(i); }
+  const ms = Number(n >> 23n) + 1314220021721;
+  return (ms > 1314220021721 && ms < Date.now() + 86400000) ? Math.floor(ms/1000) : null;
+}
+
+async function procurarEm(p, codigo, params, maxPaginas){
+  let pag = await api(`${p.igId}/media`, {fields:'id,shortcode,comments_count,timestamp', limit:100, ...params});
+  for(let n=0; n<maxPaginas; n++){
+    const achou = pag.data.find(m => m.shortcode === codigo);
+    if(achou) return {...achou, perfil:p.username};
+    if(!pag.paging || !pag.paging.next || !pag.data.length) break;
+    pag = await api(pag.paging.next);
+  }
+  return null;
+}
+
+async function acharPost(codigo){
+  const t = dataDoCodigo(codigo);
+  // 1) rápido: só os posts de 3 dias antes a 3 dias depois da data do link
+  if(t){
+    const quando = new Date(t*1000).toLocaleDateString('pt-BR');
+    for(const p of perfis){
+      msg($('msgBusca'), `Procurando o post de ${quando} em @${p.username}...`);
+      const achou = await procurarEm(p, codigo, {since: t - 3*86400, until: t + 3*86400}, 5);
+      if(achou) return achou;
+    }
+  }
+  // 2) reserva: varre todos os posts de cada perfil
+  for(const p of perfis){
+    msg($('msgBusca'), `Procurando em todos os posts de @${p.username} (pode demorar)...`);
+    const achou = await procurarEm(p, codigo, {}, 100);
+    if(achou) return achou;
+  }
+  return null;
+}
+
+async function puxarComentarios(mediaId, totalEsperado){
+  const lista = [];
+  let pag = await api(`${mediaId}/comments`, {fields:'username,text,timestamp,replies.limit(100){username,text,timestamp}', limit:50});
+  while(true){
+    for(const c of pag.data){
+      lista.push({username:c.username, text:c.text, timestamp:c.timestamp, resposta:false});
+      if(c.replies) for(const r of c.replies.data)
+        lista.push({username:r.username, text:r.text, timestamp:r.timestamp, resposta:true});
+    }
+    const pct = totalEsperado ? Math.min(99, Math.round(lista.length / totalEsperado * 100)) : 50;
+    barra(pct);
+    msg($('msgBusca'), `Buscando comentários... ${lista.length}${totalEsperado ? ' de ~'+totalEsperado : ''}`);
+    if(!pag.paging || !pag.paging.next) break;
+    pag = await api(pag.paging.next);
+  }
+  return lista;
+}
+
+$('btnBuscar').onclick = async () => {
+  const codigo = codigoDoLink($('link').value);
+  if(!codigo){ msg($('msgBusca'),'Esse link não parece de um post do Instagram. Exemplo: https://www.instagram.com/p/ABC123/','err'); return; }
+  $('btnBuscar').disabled = true; barra(5);
+  try{
+    const post = await acharPost(codigo);
+    if(!post){
+      barra(null);
+      msg($('msgBusca'),'Não achei esse post nos perfis conectados (' + perfis.map(p=>'@'+p.username).join(', ') + '). Ele é de outro perfil, ou de um perfil que não foi marcado no login.','err');
+      return;
+    }
+    perfilDoPost = post.perfil;
+    comentarios = await puxarComentarios(post.id, post.comments_count);
+    barra(100);
+    msg($('msgBusca'), `Pronto! ${comentarios.length} comentários carregados de @${post.perfil} (post de ${new Date(post.timestamp).toLocaleDateString('pt-BR')}).`, 'ok');
+    jaSorteados = new Set();
+    $('fExcluir').value = '@' + post.perfil;
+    $('cardFiltros').classList.remove('hidden');
+    $('cardGanhadores').classList.add('hidden');
+    mostrar();
+    atualizarValidos();
+  }catch(e){ barra(null); msg($('msgBusca'),'Erro: '+e.message,'err'); }
+  finally{ $('btnBuscar').disabled = false; }
+};
+
+// ---------- Exibição ----------
+function esc(s){ return String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function mostrar(){
+  $('cardResultado').classList.remove('hidden');
+  const princ = comentarios.filter(c=>!c.resposta);
+  $('sTotal').textContent = comentarios.length;
+  $('sPrinc').textContent = princ.length;
+  $('sPessoas').textContent = new Set(comentarios.map(c=>c.username)).size;
+  $('sPerfil').textContent = '@' + perfilDoPost;
+  const verResp = $('chkResp').checked;
+  const linhas = (verResp ? comentarios : princ);
+  $('tbody').innerHTML = linhas.map((c,i) => `
+    <tr><td>${i+1}</td>
+    <td class="u"><a href="https://www.instagram.com/${esc(c.username)}/" target="_blank" rel="noopener">@${esc(c.username)}</a>${c.resposta?'<span class="tag">resposta</span>':''}</td>
+    <td>${esc(c.text)}</td>
+    <td>${new Date(c.timestamp).toLocaleString('pt-BR')}</td></tr>`).join('');
+}
+$('chkResp').onchange = mostrar;
+
+// ---------- Filtros e sorteio ----------
+let jaSorteados = new Set();   // quem já saiu neste post (para "sortear de novo")
+let ultimoResultado = [];
+
+const semAcento = s => String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+const limpaUser = s => s.trim().replace(/^@/,'').toLowerCase();
+function mencoes(texto){
+  const set = new Set();
+  for(const m of String(texto||'').matchAll(/@([A-Za-z0-9._]+)/g)) set.add(m[1].toLowerCase().replace(/\.$/,''));
+  return set;
+}
+
+function regras(){
+  return {
+    unico: $('fUnico').checked,
+    resp: $('fResp').checked,
+    palavra: semAcento($('fPalavra').value.trim()),
+    minMenc: Math.max(0, parseInt($('fMencoes').value)||0),
+    excluir: new Set($('fExcluir').value.split(/[\s,;]+/).map(limpaUser).filter(Boolean)),
+    ganh: Math.min(5, Math.max(1, parseInt($('fGanh').value)||1)),
+    supl: Math.min(5, Math.max(0, parseInt($('fSupl').value)||0)),
+  };
+}
+
+// devolve a lista de "bilhetes": cada um é {username, text, timestamp}
+function bilhetes(r){
+  const validos = comentarios.filter(c => {
+    const u = String(c.username||'').toLowerCase();
+    if(!u || r.excluir.has(u)) return false;
+    if(c.resposta && !r.resp) return false;
+    if(r.palavra && !semAcento(c.text).includes(r.palavra)) return false;
+    if(r.minMenc){ const m = mencoes(c.text); m.delete(u); if(m.size < r.minMenc) return false; }
+    return true;
+  });
+  if(!r.unico) return validos;
+  const porPessoa = new Map();
+  for(const c of validos) if(!porPessoa.has(c.username.toLowerCase())) porPessoa.set(c.username.toLowerCase(), c);
+  return [...porPessoa.values()];
+}
+
+function atualizarValidos(){
+  if(!comentarios.length) return;
+  const r = regras();
+  const b = bilhetes(r).filter(x => !jaSorteados.has(x.username.toLowerCase()));
+  const pessoas = new Set(b.map(x=>x.username.toLowerCase())).size;
+  $('nValidos').textContent = r.unico ? pessoas : b.length;
+  $('txtValidos').textContent = r.unico
+    ? `pessoas participando${jaSorteados.size ? ' (fora quem já saiu)' : ''}`
+    : `comentários participando, de ${pessoas} pessoas${jaSorteados.size ? ' (fora quem já saiu)' : ''}`;
+  $('btnSortear').disabled = pessoas === 0;
+}
+['fUnico','fResp','fPalavra','fMencoes','fExcluir','fGanh','fSupl'].forEach(id => $(id).addEventListener('input', atualizarValidos));
+
+let participantesDoSorteio = '';
+const mostrarNum = () => $('fMostrarNum').checked;
+function aplicarMostrarNum(){
+  document.body.classList.toggle('sem-num', !mostrarNum());
+  try{ localStorage.setItem('sorteio.mostrarNum', mostrarNum() ? '1' : '0'); }catch(e){}
+  if(participantesDoSorteio && $('msgSorteio').className.includes('ok') && $('msgSorteio').textContent.startsWith('Sorteado'))
+    $('msgSorteio').textContent = $('msgSorteio').textContent.replace(/ entre .*$| *\.$/, '') + (mostrarNum() ? ` entre ${participantesDoSorteio} participantes válidos.` : '.');
+}
+try{ if(localStorage.getItem('sorteio.mostrarNum') === '0') $('fMostrarNum').checked = false; }catch(e){}
+$('fMostrarNum').addEventListener('change', aplicarMostrarNum);
+aplicarMostrarNum();
+
+// número aleatório justo (criptográfico) entre 0 e n-1
+function aleatorio(n){
+  const max = Math.floor(0x100000000 / n) * n;
+  const buf = new Uint32Array(1);
+  do { crypto.getRandomValues(buf); } while(buf[0] >= max);
+  return buf[0] % n;
+}
+
+function sortear(){
+  const r = regras();
+  let pote = bilhetes(r).filter(x => !jaSorteados.has(x.username.toLowerCase()));
+  const total = r.ganh + r.supl;
+  const saiu = [];
+  while(saiu.length < total && pote.length){
+    const escolhido = pote[aleatorio(pote.length)];
+    const u = escolhido.username.toLowerCase();
+    saiu.push(escolhido);
+    pote = pote.filter(x => x.username.toLowerCase() !== u);   // a mesma pessoa não sai duas vezes
+  }
+  saiu.forEach(x => jaSorteados.add(x.username.toLowerCase()));
+  return saiu.map((x,i) => ({...x, papel: i < r.ganh ? 'ganhador' : 'suplente'}));
+}
+
+const espera = ms => new Promise(res => setTimeout(res, ms));
+async function revelar(resultado){
+  const palco = $('palco');
+  palco.style.display = 'grid';
+  for(const n of [3,2,1]){ palco.innerHTML = `<div><div class="num">${n}</div></div>`; await espera(800); }
+  const ganh = resultado.filter(x=>x.papel==='ganhador');
+  const entre = mostrarNum() ? `<small>entre ${participantesDoSorteio} participantes</small>` : '';
+  palco.innerHTML = `<div><small>${ganh.length>1?'Ganhadores':'Ganhador(a)'}</small>${ganh.map(x=>`<div class="nome">@${esc(x.username)}</div>`).join('')}${entre}<small>clique para fechar</small></div>`;
+  await new Promise(res => palco.onclick = res);
+  palco.style.display = 'none';
+}
+
+function mostrarGanhadores(resultado){
+  ultimoResultado = resultado;
+  $('cardGanhadores').classList.remove('hidden');
+  let g=0, s=0;
+  $('listaGanhadores').innerHTML = resultado.map(x => {
+    const pos = x.papel==='ganhador' ? ++g : ++s;
+    return `<div class="ganhador ${x.papel==='suplente'?'supl':''}">
+      <div class="pos">${x.papel==='ganhador' ? pos+'º' : 'S'+pos}</div>
+      <div class="quem"><a href="https://www.instagram.com/${esc(x.username)}/" target="_blank" rel="noopener">@${esc(x.username)}</a>
+        <div>“${esc(x.text)}” · ${new Date(x.timestamp).toLocaleString('pt-BR')}</div></div>
+      <div class="papel">${x.papel}</div></div>`;
+  }).join('') || '<p>Ninguém sobrou para sortear com essas regras.</p>';
+  $('cardGanhadores').scrollIntoView({behavior:'smooth'});
+}
+
+async function rodarSorteio(){
+  atualizarValidos();
+  const participantes = $('nValidos').textContent;
+  participantesDoSorteio = participantes;
+  const resultado = sortear();
+  if(!resultado.length){ msg($('msgSorteio'),'Ninguém sobrou para sortear com essas regras.','err'); return; }
+  await revelar(resultado);
+  mostrarGanhadores(resultado);
+  msg($('msgSorteio'), `Sorteado em ${new Date().toLocaleString('pt-BR')}` + (mostrarNum() ? ` entre ${participantes} participantes válidos.` : '.'), 'ok');
+  atualizarValidos();
+}
+$('btnSortear').onclick = rodarSorteio;
+$('btnDeNovo').onclick = rodarSorteio;
+
+$('btnCopiar').onclick = async () => {
+  const r = regras();
+  const linhas = [`Sorteio @${perfilDoPost} — ${new Date().toLocaleString('pt-BR')}`, $('link').value.trim(), ''];
+  let g=0, s=0;
+  for(const x of ultimoResultado) linhas.push(x.papel==='ganhador' ? `${++g}º ganhador(a): @${x.username}` : `${++s}º suplente: @${x.username}`);
+  if(mostrarNum() && participantesDoSorteio) linhas.push('', `Participantes válidos: ${participantesDoSorteio}`);
+  linhas.push('', `Regras: ${r.unico?'uma chance por pessoa':'cada comentário vale uma chance'}${r.resp?', respostas contam':''}${r.palavra?`, palavra "${$('fPalavra').value.trim()}"`:''}${r.minMenc?`, mínimo ${r.minMenc} @marcação(ões)`:''}.`);
+  try{ await navigator.clipboard.writeText(linhas.join('\n')); msg($('msgSorteio'),'Resultado copiado.','ok'); }
+  catch{ msg($('msgSorteio'),'Não consegui copiar automaticamente.','err'); }
+};
+
+$('btnCsv').onclick = () => {
+  const linhas = [['usuario','comentario','data','resposta']].concat(
+    comentarios.map(c => [c.username, c.text, c.timestamp, c.resposta?'sim':'nao']));
+  const csv = linhas.map(l => l.map(v => '"' + String(v??'').replace(/"/g,'""') + '"').join(';')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'}));
+  a.download = `comentarios-${perfilDoPost}-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+};
+</script>
+<script async defer crossorigin="anonymous" src="https://connect.facebook.net/pt_BR/sdk.js"></script>
+</body>
+</html>
