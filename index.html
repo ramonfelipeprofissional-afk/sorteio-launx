@@ -61,15 +61,13 @@
 <body>
 <header>
   <h1>Sorteio Launx</h1>
-  <div id="quem" style="font-size:14px;opacity:.85"></div>
 </header>
 
 <main>
   <section class="card" id="cardLogin">
-    <h2>1. Entrar</h2>
-    <button id="btnLogin">Entrar com Facebook</button>
+    <h2>1. Perfis disponíveis</h2>
     <div class="perfis" id="perfis"></div>
-    <div class="msg" id="msgLogin"></div>
+    <div class="msg" id="msgLogin">Carregando perfis...</div>
   </section>
 
   <section class="card">
@@ -133,12 +131,7 @@
 <div id="palco"></div>
 
 <script>
-const APP_ID = '4505717029689770';
-const API = 'https://graph.facebook.com/v27.0';
-const SCOPES = 'pages_show_list,pages_read_engagement,business_management,instagram_basic,instagram_manage_comments';
-
-let token = null;
-let perfis = [];      // [{igId, username, pagina}]
+let perfis = [];      // [{igId, username}]
 let comentarios = []; // [{username, text, timestamp, resposta}]
 let perfilDoPost = '';
 
@@ -146,56 +139,29 @@ const $ = id => document.getElementById(id);
 function msg(el, texto, tipo){ el.textContent = texto; el.className = 'msg ' + (tipo||''); }
 function barra(p){ const b=$('bar'); b.style.display = p==null?'none':'block'; b.firstElementChild.style.width = (p||0)+'%'; }
 
-async function api(caminho, params={}){
-  const url = new URL(caminho.startsWith('http') ? caminho : API + '/' + caminho);
-  if(!caminho.startsWith('http')){
-    for(const [k,v] of Object.entries(params)) url.searchParams.set(k,v);
-    url.searchParams.set('access_token', token);
-  }
+// chamadas ao nosso servidor (a chave da Meta fica guardada lá)
+async function api(rota, params={}){
+  const url = new URL('api/' + rota, location.href);
+  for(const [k,v] of Object.entries(params)) if(v != null && v !== '') url.searchParams.set(k, v);
   const r = await fetch(url);
-  const j = await r.json();
-  if(j.error) throw new Error(j.error.message);
+  let j; try{ j = await r.json(); }catch{ throw new Error('O servidor não respondeu direito (código ' + r.status + ').'); }
+  if(!r.ok) throw new Error(j.erro || ('código ' + r.status));
   return j;
 }
 
-// ---------- Login ----------
-window.fbAsyncInit = function(){
-  FB.init({ appId: APP_ID, cookie: true, xfbml: false, version: 'v27.0' });
-  FB.getLoginStatus(r => { if(r.status === 'connected') aposLogin(r.authResponse.accessToken); });
-};
-$('btnLogin').onclick = () => {
-  if(!window.FB){ msg($('msgLogin'),'O Facebook ainda está carregando. Tente de novo em alguns segundos.','err'); return; }
-  FB.login(r => {
-    if(r.authResponse) aposLogin(r.authResponse.accessToken);
-    else msg($('msgLogin'),'Login cancelado.','err');
-  }, { scope: SCOPES });
-};
-
-async function aposLogin(t){
-  token = t;
-  msg($('msgLogin'),'Carregando perfis...');
+async function carregarPerfis(){
   try{
-    const me = await api('me', {fields:'name'});
-    $('quem').textContent = me.name;
-    perfis = [];
-    let pag = await api('me/accounts', {fields:'name,instagram_business_account{id,username}', limit:100});
-    while(true){
-      for(const p of pag.data) if(p.instagram_business_account)
-        perfis.push({igId:p.instagram_business_account.id, username:p.instagram_business_account.username, pagina:p.name});
-      if(!pag.paging || !pag.paging.next) break;
-      pag = await api(pag.paging.next);
-    }
+    perfis = await api('perfis');
     $('perfis').innerHTML = perfis.map(p => `<span class="chip">@${p.username}</span>`).join('');
     if(perfis.length){
-      msg($('msgLogin'), `${perfis.length} perfil(is) do Instagram conectado(s).`, 'ok');
+      msg($('msgLogin'), 'Cole o link de um post de um desses perfis.', 'ok');
       $('btnBuscar').disabled = false;
-      $('btnLogin').textContent = 'Trocar / atualizar acesso';
-      $('btnLogin').className = 'sec';
     } else {
-      msg($('msgLogin'),'Nenhum perfil do Instagram encontrado. Entre de novo e marque as Páginas e contas dos experts.','err');
+      msg($('msgLogin'), 'Nenhum perfil conectado no servidor. A chave da Meta precisa ser configurada ou renovada.', 'err');
     }
-  }catch(e){ msg($('msgLogin'),'Erro: '+e.message,'err'); }
+  }catch(e){ msg($('msgLogin'), 'Erro ao carregar perfis: ' + e.message, 'err'); }
 }
+carregarPerfis();
 
 // ---------- Link -> post ----------
 function codigoDoLink(link){
@@ -213,12 +179,13 @@ function dataDoCodigo(codigo){
 }
 
 async function procurarEm(p, codigo, params, maxPaginas){
-  let pag = await api(`${p.igId}/media`, {fields:'id,shortcode,comments_count,timestamp', limit:100, ...params});
+  let after = null;
   for(let n=0; n<maxPaginas; n++){
+    const pag = await api('posts', {ig: p.igId, ...params, after});
     const achou = pag.data.find(m => m.shortcode === codigo);
-    if(achou) return {...achou, perfil:p.username};
-    if(!pag.paging || !pag.paging.next || !pag.data.length) break;
-    pag = await api(pag.paging.next);
+    if(achou) return {...achou, perfil:p.username, igId:p.igId};
+    if(!pag.after || !pag.data.length) break;
+    after = pag.after;
   }
   return null;
 }
@@ -243,20 +210,17 @@ async function acharPost(codigo){
   return null;
 }
 
-async function puxarComentarios(mediaId, totalEsperado){
-  const lista = [];
-  let pag = await api(`${mediaId}/comments`, {fields:'username,text,timestamp,replies.limit(100){username,text,timestamp}', limit:50});
+async function puxarComentarios(post){
+  const lista = [], totalEsperado = post.comments_count;
+  let after = null;
   while(true){
-    for(const c of pag.data){
-      lista.push({username:c.username, text:c.text, timestamp:c.timestamp, resposta:false});
-      if(c.replies) for(const r of c.replies.data)
-        lista.push({username:r.username, text:r.text, timestamp:r.timestamp, resposta:true});
-    }
+    const pag = await api('comentarios', {ig: post.igId, media: post.id, after});
+    lista.push(...pag.data);
     const pct = totalEsperado ? Math.min(99, Math.round(lista.length / totalEsperado * 100)) : 50;
     barra(pct);
     msg($('msgBusca'), `Buscando comentários... ${lista.length}${totalEsperado ? ' de ~'+totalEsperado : ''}`);
-    if(!pag.paging || !pag.paging.next) break;
-    pag = await api(pag.paging.next);
+    if(!pag.after) break;
+    after = pag.after;
   }
   return lista;
 }
@@ -269,11 +233,11 @@ $('btnBuscar').onclick = async () => {
     const post = await acharPost(codigo);
     if(!post){
       barra(null);
-      msg($('msgBusca'),'Não achei esse post nos perfis conectados (' + perfis.map(p=>'@'+p.username).join(', ') + '). Ele é de outro perfil, ou de um perfil que não foi marcado no login.','err');
+      msg($('msgBusca'),'Não achei esse post nos perfis conectados (' + perfis.map(p=>'@'+p.username).join(', ') + '). Ele é de outro perfil ou de uma collab publicada por outra conta.','err');
       return;
     }
     perfilDoPost = post.perfil;
-    comentarios = await puxarComentarios(post.id, post.comments_count);
+    comentarios = await puxarComentarios(post);
     barra(100);
     msg($('msgBusca'), `Pronto! ${comentarios.length} comentários carregados de @${post.perfil} (post de ${new Date(post.timestamp).toLocaleDateString('pt-BR')}).`, 'ok');
     jaSorteados = new Set();
@@ -455,6 +419,5 @@ $('btnCsv').onclick = () => {
   a.click();
 };
 </script>
-<script async defer crossorigin="anonymous" src="https://connect.facebook.net/pt_BR/sdk.js"></script>
 </body>
 </html>
