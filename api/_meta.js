@@ -32,10 +32,18 @@ async function perfis() {
   const lista = [];
   for (const token of lerChaves()) {
     try {
+      // chave de Página
       const me = await graph('me', { fields: 'instagram_business_account{id,username}' }, token);
       if (me.instagram_business_account)
         lista.push({ igId: me.instagram_business_account.id, username: me.instagram_business_account.username, token });
-    } catch { /* chave inválida ou vencida: ignora */ }
+    } catch {
+      // chave de usuário: pega as Páginas dele
+      try {
+        const contas = await graph('me/accounts', { fields: 'access_token,instagram_business_account{id,username}', limit: 100 }, token);
+        for (const p of contas.data || []) if (p.instagram_business_account)
+          lista.push({ igId: p.instagram_business_account.id, username: p.instagram_business_account.username, token: p.access_token });
+      } catch { /* chave inválida ou vencida: ignora */ }
+    }
   }
   cache = lista; cacheEm = Date.now();
   return lista;
